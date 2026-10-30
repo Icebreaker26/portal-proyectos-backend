@@ -14,6 +14,10 @@ export const errorHandler = (err, req, res, _next) => {
     return res.status(409).json({ error: 'Referencia inválida' });
   }
 
+  if (err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({ error: 'El archivo supera el tamaño máximo permitido' });
+  }
+
   logger.error(err.message, { stack: err.stack, path: req.path, method: req.method });
   res.status(err.status || 500).json({ error: err.publicMessage || 'Error interno del servidor' });
 };

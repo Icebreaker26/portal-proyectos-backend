@@ -7,9 +7,11 @@ const { default: request } = await import('supertest');
 const { default: bcrypt } = await import('bcrypt');
 
 const EMAIL = 'proyectos-test@portal.ucp.test';
+const EMAIL_PROFESOR = 'proyectos-test-profesor@portal.ucp.test';
+const EMAIL_PARTICIPANTE = 'proyectos-test-participante@portal.ucp.test';
 const PASS = 'testpass123';
 
-let app, agent, usuarioUuid;
+let app, agent, usuarioUuid, profesorAgent, profesorUuid, participanteAgent, participanteUuid;
 
 beforeAll(async () => {
   app = await createApp();
@@ -32,14 +34,52 @@ beforeAll(async () => {
     [usuarioUuid],
   );
 
+  const profesor = await pool.query(
+    `INSERT INTO global_usuarios (nombre, email, password_hash, rol)
+     VALUES ('Test Profesor', $1, $2, 'profesor')
+     ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash
+     RETURNING id`,
+    [EMAIL_PROFESOR, hash],
+  );
+  profesorUuid = profesor.rows[0].id;
+  await pool.query(
+    `INSERT INTO permisos (usuario_uuid, modulo_id, accion_id)
+     SELECT $1, m.id, a.id FROM modulos m, acciones a
+     WHERE m.nombre = 'proyectos' AND a.nombre IN ('READ', 'WRITE', 'DELETE', 'APROBAR')
+     ON CONFLICT DO NOTHING`,
+    [profesorUuid],
+  );
+
+  const participante = await pool.query(
+    `INSERT INTO global_usuarios (nombre, email, password_hash, rol)
+     VALUES ('Test Participante', $1, $2, 'estudiante')
+     ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash
+     RETURNING id`,
+    [EMAIL_PARTICIPANTE, hash],
+  );
+  participanteUuid = participante.rows[0].id;
+  await pool.query(
+    `INSERT INTO permisos (usuario_uuid, modulo_id, accion_id)
+     SELECT $1, m.id, a.id FROM modulos m, acciones a
+     WHERE m.nombre = 'proyectos' AND a.nombre IN ('READ', 'WRITE')
+     ON CONFLICT DO NOTHING`,
+    [participanteUuid],
+  );
+
   agent = request.agent(app);
   await agent.post('/api/auth/login').send({ email: EMAIL, password: PASS });
+
+  profesorAgent = request.agent(app);
+  await profesorAgent.post('/api/auth/login').send({ email: EMAIL_PROFESOR, password: PASS });
+
+  participanteAgent = request.agent(app);
+  await participanteAgent.post('/api/auth/login').send({ email: EMAIL_PARTICIPANTE, password: PASS });
 });
 
 afterAll(async () => {
-  await pool.query('DELETE FROM proyectos WHERE autor_uuid = $1', [usuarioUuid]);
-  await pool.query('DELETE FROM permisos WHERE usuario_uuid = $1', [usuarioUuid]);
-  await pool.query('DELETE FROM global_usuarios WHERE id = $1', [usuarioUuid]);
+  await pool.query('DELETE FROM proyectos WHERE autor_uuid IN ($1, $2, $3)', [usuarioUuid, profesorUuid, participanteUuid]);
+  await pool.query('DELETE FROM permisos WHERE usuario_uuid IN ($1, $2, $3)', [usuarioUuid, profesorUuid, participanteUuid]);
+  await pool.query('DELETE FROM global_usuarios WHERE id IN ($1, $2, $3)', [usuarioUuid, profesorUuid, participanteUuid]);
   await pool.end();
 });
 
@@ -208,6 +248,176 @@ describe('Proyectos — Integración', () => {
     test('Responde 400 si el id no es un UUID válido', async () => {
       const res = await request(app).get('/api/proyectos/pub/no-es-un-uuid');
       expect(res.status).toBe(400);
+    });
+  });
+
+  describe('Campos extendidos (ADR 0008) y slug', () => {
+    test('POST acepta los campos nuevos y genera un slug', async () => {
+      const res = await agent.post('/api/proyectos').send({
+        titulo: 'Proyecto Con Campos Extendidos',
+        descripcion: 'Descripción básica',
+        programa: 'Ingeniería de Sistemas',
+        asignatura: 'Ingeniería de Software II',
+        semestre: '2026-1',
+        tipo_proyecto: 'aplicativo',
+        resumen: 'Resumen corto del proyecto',
+        stack: ['Node.js', 'React'],
+        palabras_clave: ['software', 'ucp'],
+        visibilidad: 'publico',
+      });
+      expect(res.status).toBe(201);
+      expect(res.body.slug).toBe('proyecto-con-campos-extendidos');
+      expect(res.body.stack).toEqual(['Node.js', 'React']);
+    });
+
+    test('Dos proyectos con el mismo título generan slugs distintos', async () => {
+      const primero = await agent
+        .post('/api/proyectos')
+        .send({ titulo: 'Título Repetido', descripcion: 'd' });
+      const segundo = await agent
+        .post('/api/proyectos')
+        .send({ titulo: 'Título Repetido', descripcion: 'd' });
+
+      expect(primero.body.slug).toBe('titulo-repetido');
+      expect(segundo.body.slug).toBe('titulo-repetido-2');
+    });
+
+    test('El autor queda como participante líder automáticamente', async () => {
+      const res = await agent
+        .post('/api/proyectos')
+        .send({ titulo: 'Proyecto Autor Participante', descripcion: 'd' });
+
+      const { rows } = await pool.query(
+        'SELECT rol, consiente_publicacion FROM proyecto_participantes WHERE proyecto_id = $1 AND usuario_uuid = $2',
+        [res.body.id, usuarioUuid],
+      );
+      expect(rows[0]).toMatchObject({ rol: 'lider', consiente_publicacion: true });
+    });
+  });
+
+  describe('profesor_uuid', () => {
+    test('Acepta una cuenta con rol profesor', async () => {
+      const res = await agent.post('/api/proyectos').send({
+        titulo: 'Proyecto con profesor válido',
+        descripcion: 'd',
+        profesor_uuid: profesorUuid,
+      });
+      expect(res.status).toBe(201);
+    });
+
+    test('Rechaza una cuenta que no es profesor con 400', async () => {
+      const res = await agent.post('/api/proyectos').send({
+        titulo: 'Proyecto con profesor inválido',
+        descripcion: 'd',
+        profesor_uuid: usuarioUuid,
+      });
+      expect(res.status).toBe(400);
+    });
+
+    test('Rechaza un UUID de profesor inexistente con 400', async () => {
+      const res = await agent.post('/api/proyectos').send({
+        titulo: 'Proyecto con profesor inexistente',
+        descripcion: 'd',
+        profesor_uuid: '00000000-0000-0000-0000-000000000000',
+      });
+      expect(res.status).toBe(400);
+    });
+  });
+
+  describe('Participantes, consentimiento y revisiones', () => {
+    let proyectoId;
+
+    beforeAll(async () => {
+      const res = await agent.post('/api/proyectos').send({
+        titulo: 'Proyecto con coautor',
+        descripcion: 'd',
+        participantes: [
+          { usuario_uuid: usuarioUuid, rol: 'lider', orden_autoria: 1 },
+          { usuario_uuid: participanteUuid, rol: 'desarrollo', orden_autoria: 2 },
+        ],
+      });
+      proyectoId = res.body.id;
+    });
+
+    test('El participante agregado empieza sin consentimiento', async () => {
+      const { rows } = await pool.query(
+        'SELECT consiente_publicacion FROM proyecto_participantes WHERE proyecto_id = $1 AND usuario_uuid = $2',
+        [proyectoId, participanteUuid],
+      );
+      expect(rows[0].consiente_publicacion).toBe(false);
+    });
+
+    test('No se puede aprobar mientras falte un consentimiento — responde 409', async () => {
+      const res = await profesorAgent.put(`/api/proyectos/${proyectoId}/estado`).send({ estado: 'aprobado' });
+      expect(res.status).toBe(409);
+    });
+
+    test('El participante confirma su consentimiento', async () => {
+      const res = await participanteAgent
+        .put(`/api/proyectos/${proyectoId}/consentimiento`)
+        .send({ consiente: true });
+      expect(res.status).toBe(200);
+    });
+
+    test('Un usuario que no es participante no puede confirmar consentimiento — 404', async () => {
+      const otroAgent = request.agent(app);
+      // profesorAgent no es participante de este proyecto
+      const res = await profesorAgent
+        .put(`/api/proyectos/${proyectoId}/consentimiento`)
+        .send({ consiente: true });
+      expect(res.status).toBe(404);
+      void otroAgent;
+    });
+
+    test('Ya con el consentimiento, el profesor puede aprobar', async () => {
+      const res = await profesorAgent
+        .put(`/api/proyectos/${proyectoId}/estado`)
+        .send({ estado: 'aprobado', comentario: 'Buen trabajo' });
+      expect(res.status).toBe(200);
+      expect(res.body.estado).toBe('aprobado');
+    });
+
+    test('El cambio de estado queda registrado en proyecto_revisiones con el comentario', async () => {
+      const { rows } = await pool.query(
+        `SELECT estado_anterior, estado_nuevo, comentario, revisor_uuid
+           FROM proyecto_revisiones WHERE proyecto_id = $1 ORDER BY created_at DESC LIMIT 1`,
+        [proyectoId],
+      );
+      expect(rows[0]).toMatchObject({
+        estado_anterior: 'pendiente',
+        estado_nuevo: 'aprobado',
+        comentario: 'Buen trabajo',
+        revisor_uuid: profesorUuid,
+      });
+    });
+  });
+
+  describe('Visibilidad "privado"', () => {
+    let privadoId;
+
+    beforeAll(async () => {
+      const res = await agent.post('/api/proyectos').send({
+        titulo: 'Proyecto privado de prueba',
+        descripcion: 'd',
+        visibilidad: 'privado',
+      });
+      privadoId = res.body.id;
+      await profesorAgent.put(`/api/proyectos/${privadoId}/estado`).send({ estado: 'aprobado' });
+    });
+
+    test('No aparece en el listado público', async () => {
+      const res = await request(app).get('/api/proyectos/pub');
+      expect(res.body.map((p) => p.id)).not.toContain(privadoId);
+    });
+
+    test('Su detalle público responde 404', async () => {
+      const res = await request(app).get(`/api/proyectos/pub/${privadoId}`);
+      expect(res.status).toBe(404);
+    });
+
+    test('Un estudiante que no es autor ni participante no lo ve en GET /api/proyectos', async () => {
+      const res = await participanteAgent.get('/api/proyectos');
+      expect(res.body.map((p) => p.id)).not.toContain(privadoId);
     });
   });
 });
