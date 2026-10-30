@@ -1,4 +1,4 @@
-import { crearSchema, actualizarEstadoSchema } from '../schemas/proyectosSchema.js';
+import { crearSchema, actualizarEstadoSchema, idParamSchema } from '../schemas/proyectosSchema.js';
 import * as service from '../services/proyectosService.js';
 
 export const listar = async (req, res, next) => {
@@ -11,6 +11,15 @@ export const listarPublico = async (req, res, next) => {
   catch (err) { next(err); }
 };
 
+export const obtenerPublico = async (req, res, next) => {
+  try {
+    const { id } = idParamSchema.parse(req.params);
+    const proyecto = await service.obtenerPublico(id);
+    if (!proyecto) return res.status(404).json({ error: 'Proyecto no encontrado' });
+    res.json(proyecto);
+  } catch (err) { next(err); }
+};
+
 export const crear = async (req, res, next) => {
   try {
     const datos = crearSchema.parse(req.body);
@@ -21,8 +30,9 @@ export const crear = async (req, res, next) => {
 
 export const actualizarEstado = async (req, res, next) => {
   try {
+    const { id } = idParamSchema.parse(req.params);
     const { estado } = actualizarEstadoSchema.parse(req.body);
-    const proyecto = await service.actualizarEstado(req.params.id, estado);
+    const proyecto = await service.actualizarEstado(id, estado);
     if (!proyecto) return res.status(404).json({ error: 'Proyecto no encontrado' });
     res.json(proyecto);
   } catch (err) { next(err); }
@@ -30,7 +40,8 @@ export const actualizarEstado = async (req, res, next) => {
 
 export const eliminar = async (req, res, next) => {
   try {
-    const eliminado = await service.eliminar(req.params.id);
+    const { id } = idParamSchema.parse(req.params);
+    const eliminado = await service.eliminar(id);
     if (!eliminado) return res.status(404).json({ error: 'Proyecto no encontrado' });
     res.json({ ok: true });
   } catch (err) { next(err); }

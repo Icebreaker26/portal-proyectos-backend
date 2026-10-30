@@ -29,8 +29,12 @@ export const listar = async (usuario, { estado } = {}) => {
   }
 
   const { rows } = await pool.query(
-    `SELECT id, titulo, descripcion, repositorio_url, estado, autor_uuid, created_at
-       FROM proyectos WHERE ${condiciones.join(' AND ')} ORDER BY created_at DESC`,
+    `SELECT p.id, p.titulo, p.descripcion, p.repositorio_url, p.estado, p.autor_uuid, p.created_at,
+            COALESCE(v.total, 0)::int AS votos
+       FROM proyectos p
+       LEFT JOIN (SELECT proyecto_id, COUNT(*) AS total FROM votos WHERE is_active = true GROUP BY proyecto_id) v
+         ON v.proyecto_id = p.id
+      WHERE ${condiciones.join(' AND ')} ORDER BY p.created_at DESC`,
     valores,
   );
   return rows;
@@ -38,10 +42,31 @@ export const listar = async (usuario, { estado } = {}) => {
 
 export const listarPublicos = async () => {
   const { rows } = await pool.query(
-    `SELECT id, titulo, descripcion, repositorio_url, created_at
-       FROM proyectos WHERE is_active = true AND estado = 'aprobado' ORDER BY created_at DESC`,
+    `SELECT p.id, p.titulo, p.descripcion, p.repositorio_url, p.created_at,
+            COALESCE(v.total, 0)::int AS votos
+       FROM proyectos p
+       LEFT JOIN (SELECT proyecto_id, COUNT(*) AS total FROM votos WHERE is_active = true GROUP BY proyecto_id) v
+         ON v.proyecto_id = p.id
+      WHERE p.is_active = true AND p.estado = 'aprobado' ORDER BY p.created_at DESC`,
   );
   return rows;
+};
+
+// Detalle público de un proyecto: solo si está aprobado y activo (misma regla que
+// listarPublicos). Incluye el nombre del autor y el conteo de votos.
+export const obtenerPublico = async (id) => {
+  const { rows } = await pool.query(
+    `SELECT p.id, p.titulo, p.descripcion, p.repositorio_url, p.created_at,
+            g.nombre AS autor_nombre,
+            COALESCE(v.total, 0)::int AS votos
+       FROM proyectos p
+       JOIN global_usuarios g ON g.id = p.autor_uuid
+       LEFT JOIN (SELECT proyecto_id, COUNT(*) AS total FROM votos WHERE is_active = true GROUP BY proyecto_id) v
+         ON v.proyecto_id = p.id
+      WHERE p.id = $1 AND p.is_active = true AND p.estado = 'aprobado'`,
+    [id],
+  );
+  return rows[0] || null;
 };
 
 export const crear = async (autorUuid, datos) => {

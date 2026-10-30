@@ -10,6 +10,7 @@ const pubLimiter = rateLimit({ windowMs: 60 * 1000, max: 60 });
 
 // Pública: visitante consulta sin login, ANTES de verifyToken
 router.get('/pub', pubLimiter, ctrl.listarPublico);
+router.get('/pub/:id', pubLimiter, ctrl.obtenerPublico);
 
 router.use(verifyToken);
 router.get('/', checkPermission('proyectos', 'READ'), ctrl.listar);
