@@ -10,59 +10,58 @@ API REST del Portal de Proyectos UCP (ver [`docs/01-requisitos/SRS.md`](docs/01-
 para el alcance completo). Monolito modular: un núcleo transversal (auth, permisos, logging) +
 módulos de negocio enchufables (`proyectos`, `votos`) que se autodescubren por convención de carpetas.
 
-## Estado actual (ver también los issues del milestone "Fase 1")
+## Estado actual (última actualización: 2026-10-30)
 
-**Verificado funcionando** (`npm install`, `docker compose up -d db`, `npm run migrate:up`, `npm run
-dev`, `npm test`, y probado a mano con curl + navegador real: registro, login, crear proyecto,
-rechazo 403 al intentar aprobar como estudiante):
-- Núcleo completo: `src/config/env.js`, `src/db/database.js`, `src/middlewares/*`, `src/createApp.js`.
-- `auth`: login/logout/me/registro. Registro solo `@ucp.edu.co`, crea rol `estudiante` (ADR 0006).
-- ACL granular: `checkPermission`, `permisosDefaultService.js` (permisos por defecto por rol),
-  acción `APROBAR` separada de `WRITE` — un estudiante no puede aprobar proyectos.
-- Módulo `proyectos`: CRUD + ruta pública `/pub` + endpoint de aprobar/rechazar.
-- Módulo `votos`: CRUD básico (regla "un voto por proyecto" a nivel de constraint UNIQUE en BD).
-- Migraciones 0001–0005, todas corridas sin error contra Postgres 16 real.
-- `tests/integration/proyectos.test.js`: 100% verde. `votos.test.js`: solo el caso de auth, el resto
-  queda con un TODO explícito en el archivo.
-- `docker-compose.yml` con nombre de proyecto propio (`name: portal-proyectos-backend` — necesario
-  porque el autor tiene otro proyecto en una carpeta también llamada `backend`, y sin esto Docker
-  Compose los confunde; ver issue "Dockerfile + docker-compose").
+**Verificado funcionando end-to-end** (`npm install`, `docker compose up -d --build`, `npm run
+migrate:up`, `npm test`, y probado a mano con curl + navegador real):
 
-**Verificado funcionando (actualización 2026-10-30):**
-- `docker compose up -d --build backend` construye y arranca la imagen completa (no solo `db`),
-  responde en `http://localhost:48500/api/proyectos/pub`. Se corrigieron dos bugs al probarlo:
-  `DATABASE_URL` apuntaba a `localhost`, que dentro del contenedor no es el host de Postgres —
-  ahora `docker-compose.yml` la sobreescribe a `db:5432` solo para el servicio `backend`; y faltaba
-  `.dockerignore`, así que `COPY . .` pisaba el `node_modules` de Linux recién instalado con el del
-  host (Windows), rompiendo el binario nativo de `bcrypt` — ya existe `.dockerignore` excluyendo
-  `node_modules`, `.env`, `.git`.
-- Reglas de visibilidad de `proyectos` (`GET /api/proyectos`, RF-04 en el SRS): quien tiene permiso
-  `APROBAR` (profesor/admin) ve todos los proyectos activos; quien no, ve los suyos en cualquier
-  estado + los `aprobado` de otros. Implementado en
-  `src/modules/proyectos/services/proyectosService.js::listar` + test de visibilidad en
-  `tests/integration/proyectos.test.js`.
-- `tests/integration/votos.test.js` completo: CRUD, validación, conteo público y la regla "un voto
-  por usuario por proyecto" (el upsert reactiva el mismo voto en vez de duplicarlo).
-- Módulo nuevo `usuarios` (issue #10): `GET /api/usuarios` y `PUT /api/usuarios/:id/rol`
-  (admin-only vía ACL — nadie tiene permisos `usuarios:*` por defecto), reasigna los permisos del
-  rol nuevo sobre `proyectos`/`votos` y limpia los del anterior. Migración
-  `1772300000006_modulo_usuarios.js`. Test en `tests/integration/usuarios.test.js`.
-- `docs/01-requisitos/SRS.md`, `docs/02-diseno/SDD.md` y `docs/03-pruebas/plan-de-pruebas.md`
-  rellenos con el contenido real (requisitos funcionales RF-01..RF-07, modelo ER, estado de
-  cobertura de tests).
-- `tests/integration/auth.test.js`: validación Zod, registro (rol estudiante por defecto, permisos
-  asignados, correo duplicado → 409, dominio `@ucp.edu.co`), login/logout, `GET /me`.
-- Suite completa: `npm test` → 34/34 verde contra Postgres real.
+- **Núcleo**: `env.js`, `database.js`, middlewares, loader dinámico de módulos.
+- **Auth**: registro solo `@ucp.edu.co` → rol `estudiante` (ADR 0006), login/logout/me.
+- **ACL granular**: `checkPermission`, permisos por defecto por rol, `APROBAR` separado de `WRITE`.
+- **Módulo `usuarios`**: `GET /api/usuarios`, `PUT /api/usuarios/:id/rol` (admin-only), promueve/
+  devuelve estudiante↔profesor reasignando permisos.
+- **Módulo `votos`**: CRUD, un voto por usuario/proyecto (UNIQUE + upsert idempotente), conteo
+  público.
+- **Módulo `proyectos` con modelo extendido (ADR 0008)**: programa/asignatura/semestre/tipo,
+  profesor (FK validado), resumen, cuerpo (Markdown — el frontend sanitiza al renderizar, nunca
+  HTML crudo), stack/palabras clave, video/demo URLs, slug único, visibilidad
+  (publico/comunidad/privado), licencia. Participantes con rol/orden de autoría y **consentimiento
+  de publicación obligatorio antes de aprobar** (`proyecto_participantes`,
+  `PUT /:id/consentimiento`). Historial de aprobación/rechazo con comentario
+  (`proyecto_revisiones`). Archivos adjuntos con hash SHA-256, límite 10MB, solo PDF/PNG/JPEG/WEBP
+  (`proyecto_archivos`, `POST/GET /:id/archivos`, `GET /archivos/:id/descargar` — descarga del
+  binario exige sesión a propósito, los metadatos ya son públicos vía `/pub/:id`).
+- **`GET /api/proyectos/:id`** (autenticado — "expediente"): a diferencia de `/pub/:id` (solo
+  aprobado+público), trae cualquier proyecto al que el usuario tenga acceso (autor, participante,
+  o ya aprobado), con participantes, archivos y el historial de revisiones. Existe porque el
+  frontend decidió que aprobar/rechazar **solo** se puede hacer desde el expediente completo del
+  proyecto, nunca desde una fila de tabla — devuelve 404 (no 403) a quien no debería verlo, para no
+  revelar que el proyecto existe.
+- **Docker**: `docker compose up -d --build backend` funciona completo (no solo `db`); nombre de
+  proyecto propio para no chocar con otras carpetas `backend` del autor.
+- **Documentación**: `docs/01-requisitos/SRS.md`, `docs/02-diseno/SDD.md`,
+  `docs/03-pruebas/plan-de-pruebas.md` con contenido real; 9 ADRs en `docs/adr/`.
+- **Datos de prueba**: `npm run seed:demo` (idempotente) — 7 usuarios (`Demo1234!`), 8 proyectos en
+  los tres estados con campos extendidos, participantes y votos. Uno de ellos (`Bot de Telegram
+  para consultas de biblioteca`) tiene a propósito un coautor sin consentir, para probar la regla
+  de aprobación.
+- **Suite completa**: `npm test` → 70/70 verde contra Postgres real.
 
-**Pendiente:**
-1. **Deploy en Railway (issue #8)** — decidido no hacerlo todavía (el autor avisó que lo deja para
-   más adelante). Requiere `railway login` (cuenta del autor) antes de que un agente pueda continuar
-   con `railway init` / provisión de Postgres / variables de entorno; no lo hagas sin que el autor
-   haya iniciado sesión primero.
-2. Panel de promoción a profesor — el **backend** (issue #10) ya está hecho (ver arriba). La pieza
-   de **frontend** quedó registrada como issue propio en el otro repo:
-   [portal-proyectos-frontend#12](https://github.com/Icebreaker26/portal-proyectos-frontend/issues/12).
-   Prioridad baja, no bloquea nada de este repo.
+**Pendiente — empieza aquí:**
+
+1. **[Issue #12](https://github.com/Icebreaker26/portal-proyectos-backend/issues/12)** — dos
+   endpoints que el frontend necesita y no existen (bloquean parte de
+   [portal-proyectos-frontend#14](https://github.com/Icebreaker26/portal-proyectos-frontend/issues/14),
+   ya cerrado con ese hueco documentado): listar cuentas con rol `profesor` sin ser admin, y buscar
+   una cuenta por email para agregar coautores con cuenta real (pensar el riesgo de enumeración de
+   usuarios). Incluye exponer de alguna forma "en qué proyectos tengo que confirmar mi
+   consentimiento" para un participante autenticado.
+2. **Deploy en Railway (issue #8)** — pausado por decisión del autor. Requiere `railway login`
+   (cuenta del autor) antes de continuar con `railway init`/provisión de Postgres/variables de
+   entorno; no lo hagas sin que el autor haya iniciado sesión primero.
+3. **Fase 2 del ADR 0008** (eventos/ferias, reconocimientos, moderación/reportes, contexto
+   institucional, versionado post-aprobación) — documentada pero sin issue abierto; crear uno
+   cuando se priorice.
 
 Cada issue abierto trae un comentario indicando qué parte de su alcance está hecha y qué falta.
 Lee el issue completo (incluyendo comentarios) antes de empezar a trabajar en él.
@@ -83,6 +82,11 @@ Lee el issue completo (incluyendo comentarios) antes de empezar a trabajar en é
    (`src/createApp.js`) no lo monta.
 9. Cada módulo nuevo se registra en la tabla `modulos` vía su propia migración
    (`INSERT ... ON CONFLICT (nombre) DO NOTHING`).
+10. **`cuerpo` de un proyecto es Markdown, nunca HTML** — si algún endpoint nuevo llega a
+    renderizarlo server-side, sanitizar (ADR 0008); el frontend ya sanitiza al mostrarlo.
+11. Archivos subidos van a `uploads/` (gitignored, `uploads_vol` en Docker) — nunca commitear
+    binarios de prueba ni asumir que el volumen persiste sin backup antes de depender de él en
+    producción.
 
 ## Flujo de trabajo
 
