@@ -12,21 +12,34 @@ módulos de negocio enchufables (`proyectos`, `votos`) que se autodescubren por 
 
 ## Estado actual (ver también los issues del milestone "Fase 1")
 
-El scaffolding base **ya existe** en `develop`:
-- Núcleo: `src/config/env.js`, `src/db/database.js`, `src/middlewares/*`, `src/createApp.js`, `src/index.js`.
-- Módulo `auth`: login/logout/me/**registro** funcionando contra `global_usuarios`. El registro solo
-  acepta correos `@ucp.edu.co` y siempre crea rol `estudiante` (ver ADR 0006). La promoción a
-  `profesor` es manual (issue "Admin: promover usuario a profesor").
-- `src/services/permisosDefaultService.js`: asigna los permisos por defecto de cada rol al crearse
-  o promoverse un usuario. La acción `APROBAR` (separada de `WRITE`) solo la reciben `profesor`/`admin`.
-- Módulos `proyectos` y `votos`: CRUD básico, falta completar reglas de negocio y tests.
-- Migraciones 0001–0004 (init, permisos, proyectos, votos).
-- `Dockerfile` + `docker-compose.yml`.
-- `docs/` con esqueleto SWEBOK (SRS/SDD/plan de pruebas) y 5 ADRs ya completados.
+**Verificado funcionando** (`npm install`, `docker compose up -d db`, `npm run migrate:up`, `npm run
+dev`, `npm test`, y probado a mano con curl + navegador real: registro, login, crear proyecto,
+rechazo 403 al intentar aprobar como estudiante):
+- Núcleo completo: `src/config/env.js`, `src/db/database.js`, `src/middlewares/*`, `src/createApp.js`.
+- `auth`: login/logout/me/registro. Registro solo `@ucp.edu.co`, crea rol `estudiante` (ADR 0006).
+- ACL granular: `checkPermission`, `permisosDefaultService.js` (permisos por defecto por rol),
+  acción `APROBAR` separada de `WRITE` — un estudiante no puede aprobar proyectos.
+- Módulo `proyectos`: CRUD + ruta pública `/pub` + endpoint de aprobar/rechazar.
+- Módulo `votos`: CRUD básico (regla "un voto por proyecto" a nivel de constraint UNIQUE en BD).
+- Migraciones 0001–0005, todas corridas sin error contra Postgres 16 real.
+- `tests/integration/proyectos.test.js`: 100% verde. `votos.test.js`: solo el caso de auth, el resto
+  queda con un TODO explícito en el archivo.
+- `docker-compose.yml` con nombre de proyecto propio (`name: portal-proyectos-backend` — necesario
+  porque el autor tiene otro proyecto en una carpeta también llamada `backend`, y sin esto Docker
+  Compose los confunde; ver issue "Dockerfile + docker-compose").
 
-**No se ha corrido** `npm install` ni `docker-compose up` contra una base de datos real todavía —
-nadie ha verificado que el stack completo levante de punta a punta. Verifícalo antes de asumir que
-algo "ya funciona" solo porque el archivo existe.
+**No verificado / pendiente — empieza aquí:**
+1. **`docker compose up` del servicio `backend` (la imagen, no solo `db`)** — nunca se construyó el
+   Dockerfile del backend, solo se probó `npm run dev` directo. Hazlo antes de tocar Railway.
+2. **Reglas de visibilidad de `proyectos`** — hoy `GET /api/proyectos` devuelve TODO sin filtrar por
+   autor; falta decidir si un estudiante debe ver solo los suyos + los aprobados de otros, o todos
+   (afecta `src/modules/proyectos/services/proyectosService.js::listar`).
+3. **Completar `tests/integration/votos.test.js`** (CRUD + regla de un voto por proyecto).
+4. **Contenido real de `docs/01-requisitos/SRS.md`, `docs/02-diseno/SDD.md` y
+   `docs/03-pruebas/plan-de-pruebas.md`** — hoy son plantillas con la estructura pero sin el detalle
+   final (quedan `<!-- -->` marcando qué falta).
+5. Deploy en Railway — no iniciado.
+6. Panel de promoción a profesor (issue #10) — prioridad baja, no bloquea lo anterior.
 
 Cada issue abierto trae un comentario indicando qué parte de su alcance está hecha y qué falta.
 Lee el issue completo (incluyendo comentarios) antes de empezar a trabajar en él.
