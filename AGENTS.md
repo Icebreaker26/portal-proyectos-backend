@@ -28,18 +28,39 @@ rechazo 403 al intentar aprobar como estudiante):
   porque el autor tiene otro proyecto en una carpeta también llamada `backend`, y sin esto Docker
   Compose los confunde; ver issue "Dockerfile + docker-compose").
 
-**No verificado / pendiente — empieza aquí:**
-1. **`docker compose up` del servicio `backend` (la imagen, no solo `db`)** — nunca se construyó el
-   Dockerfile del backend, solo se probó `npm run dev` directo. Hazlo antes de tocar Railway.
-2. **Reglas de visibilidad de `proyectos`** — hoy `GET /api/proyectos` devuelve TODO sin filtrar por
-   autor; falta decidir si un estudiante debe ver solo los suyos + los aprobados de otros, o todos
-   (afecta `src/modules/proyectos/services/proyectosService.js::listar`).
-3. **Completar `tests/integration/votos.test.js`** (CRUD + regla de un voto por proyecto).
-4. **Contenido real de `docs/01-requisitos/SRS.md`, `docs/02-diseno/SDD.md` y
-   `docs/03-pruebas/plan-de-pruebas.md`** — hoy son plantillas con la estructura pero sin el detalle
-   final (quedan `<!-- -->` marcando qué falta).
-5. Deploy en Railway — no iniciado.
-6. Panel de promoción a profesor (issue #10) — prioridad baja, no bloquea lo anterior.
+**Verificado funcionando (actualización 2026-10-30):**
+- `docker compose up -d --build backend` construye y arranca la imagen completa (no solo `db`),
+  responde en `http://localhost:48500/api/proyectos/pub`. Se corrigieron dos bugs al probarlo:
+  `DATABASE_URL` apuntaba a `localhost`, que dentro del contenedor no es el host de Postgres —
+  ahora `docker-compose.yml` la sobreescribe a `db:5432` solo para el servicio `backend`; y faltaba
+  `.dockerignore`, así que `COPY . .` pisaba el `node_modules` de Linux recién instalado con el del
+  host (Windows), rompiendo el binario nativo de `bcrypt` — ya existe `.dockerignore` excluyendo
+  `node_modules`, `.env`, `.git`.
+- Reglas de visibilidad de `proyectos` (`GET /api/proyectos`, RF-04 en el SRS): quien tiene permiso
+  `APROBAR` (profesor/admin) ve todos los proyectos activos; quien no, ve los suyos en cualquier
+  estado + los `aprobado` de otros. Implementado en
+  `src/modules/proyectos/services/proyectosService.js::listar` + test de visibilidad en
+  `tests/integration/proyectos.test.js`.
+- `tests/integration/votos.test.js` completo: CRUD, validación, conteo público y la regla "un voto
+  por usuario por proyecto" (el upsert reactiva el mismo voto en vez de duplicarlo).
+- Módulo nuevo `usuarios` (issue #10): `GET /api/usuarios` y `PUT /api/usuarios/:id/rol`
+  (admin-only vía ACL — nadie tiene permisos `usuarios:*` por defecto), reasigna los permisos del
+  rol nuevo sobre `proyectos`/`votos` y limpia los del anterior. Migración
+  `1772300000006_modulo_usuarios.js`. Test en `tests/integration/usuarios.test.js`.
+- `docs/01-requisitos/SRS.md`, `docs/02-diseno/SDD.md` y `docs/03-pruebas/plan-de-pruebas.md`
+  rellenos con el contenido real (requisitos funcionales RF-01..RF-07, modelo ER, estado de
+  cobertura de tests). Quedan sin cubrir con test dedicado: `auth`/`permisos` (login/registro se
+  prueban indirectamente vía los `beforeAll` de los otros módulos).
+- Suite completa: `npm test` → 22/22 verde contra Postgres real.
+
+**Pendiente — empieza aquí:**
+1. **Deploy en Railway (issue #8)** — no iniciado. Requiere `railway login` (cuenta del autor) antes
+   de que un agente pueda continuar con `railway init` / provisión de Postgres / variables de
+   entorno; no lo hagas sin que el autor haya iniciado sesión primero.
+2. Panel de promoción a profesor — el **backend** (issue #10) ya está hecho (ver arriba); falta solo
+   la pieza de **frontend** (lista de usuarios + selector de rol, solo admin). Prioridad baja.
+3. `tests/integration/auth.test.js` dedicado (registro, duplicados, dominio de correo, login
+   inválido) — hoy solo hay cobertura indirecta.
 
 Cada issue abierto trae un comentario indicando qué parte de su alcance está hecha y qué falta.
 Lee el issue completo (incluyendo comentarios) antes de empezar a trabajar en él.

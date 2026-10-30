@@ -22,6 +22,7 @@ Jest + Supertest, **integración contra PostgreSQL real** (nunca mocks de base d
 
 | Módulo | Cobertura actual |
 |---|---|
-| proyectos | Auth, pública, validación, CRUD básico |
-| votos | Auth (pendiente completar CRUD — ver issue) |
-| auth/permisos | Pendiente |
+| proyectos | Auth, pública, validación, CRUD, borrado lógico, visibilidad por rol (RF-04) |
+| votos | Auth, validación, pública (conteo), CRUD, regla "un voto por usuario por proyecto" |
+| usuarios | Auth, 403 para no-admin, validación, promoción de rol, reasignación de permisos |
+| auth/permisos | Pendiente — cubierto indirectamente vía login en los `beforeAll` de los otros módulos; falta un `tests/integration/auth.test.js` dedicado (registro, duplicados, dominio de correo, login inválido) |
