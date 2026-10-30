@@ -2,7 +2,7 @@ import { crearSchema, actualizarEstadoSchema } from '../schemas/proyectosSchema.
 import * as service from '../services/proyectosService.js';
 
 export const listar = async (req, res, next) => {
-  try { res.json(await service.listar(req.query)); }
+  try { res.json(await service.listar(req.user, req.query)); }
   catch (err) { next(err); }
 };
 

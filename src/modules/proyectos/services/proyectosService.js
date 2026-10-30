@@ -1,12 +1,33 @@
 import pool from '../../../db/database.js';
 
-export const listar = async ({ estado } = {}) => {
+const tieneAprobar = async (usuario) => {
+  if (usuario.rol === 'admin') return true;
+  const { rows } = await pool.query(
+    `SELECT 1
+       FROM permisos p
+       JOIN modulos m  ON m.id = p.modulo_id
+       JOIN acciones a ON a.id = p.accion_id
+      WHERE p.usuario_uuid = $1 AND m.nombre = 'proyectos' AND a.nombre = 'APROBAR'`,
+    [usuario.uuid],
+  );
+  return rows.length > 0;
+};
+
+// Quien puede aprobar (profesor/admin) ve todos los proyectos, para poder moderarlos.
+// Quien no (estudiante) ve los aprobados de todos + los suyos propios en cualquier estado.
+export const listar = async (usuario, { estado } = {}) => {
   const condiciones = ['is_active = true'];
   const valores = [];
   if (estado) {
     valores.push(estado);
     condiciones.push(`estado = $${valores.length}`);
   }
+
+  if (!(await tieneAprobar(usuario))) {
+    valores.push(usuario.uuid);
+    condiciones.push(`(estado = 'aprobado' OR autor_uuid = $${valores.length})`);
+  }
+
   const { rows } = await pool.query(
     `SELECT id, titulo, descripcion, repositorio_url, estado, autor_uuid, created_at
        FROM proyectos WHERE ${condiciones.join(' AND ')} ORDER BY created_at DESC`,
