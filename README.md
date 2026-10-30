@@ -40,3 +40,7 @@ npm run dev
 ## Documentación de ingeniería
 
 Ver [`docs/`](docs/) para SRS, SDD, plan de pruebas y ADRs (decisiones de arquitectura), y la [Wiki](../../wiki) del repo para notas vivas de estado/despliegue.
+
+## Para un agente/colaborador nuevo
+
+Antes de tocar código, lee [`AGENTS.md`](AGENTS.md) (convenciones de este repo, autocontenido — no depende de ningún otro proyecto) y los [issues abiertos del milestone Fase 1](https://github.com/Icebreaker26/portal-proyectos-backend/milestones) para ver qué falta. El scaffolding base (núcleo, auth, módulos `proyectos`/`votos`, migraciones, Docker) ya existe; cada issue indica en un comentario qué parte está hecha y qué falta.
