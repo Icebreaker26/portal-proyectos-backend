@@ -1,3 +1,5 @@
+name: portal-proyectos-backend
+
 services:
   db:
     image: postgres:16-alpine
