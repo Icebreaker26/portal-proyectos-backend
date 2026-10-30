@@ -15,6 +15,7 @@ router.get('/pub/:id', pubLimiter, ctrl.obtenerPublico);
 
 router.use(verifyToken);
 router.get('/', checkPermission('proyectos', 'READ'), ctrl.listar);
+router.get('/:id', checkPermission('proyectos', 'READ'), ctrl.obtener);
 router.post('/', checkPermission('proyectos', 'WRITE'), ctrl.crear);
 router.put('/:id/estado', checkPermission('proyectos', 'APROBAR'), ctrl.actualizarEstado);
 router.put('/:id/consentimiento', checkPermission('proyectos', 'WRITE'), ctrl.actualizarConsentimiento);

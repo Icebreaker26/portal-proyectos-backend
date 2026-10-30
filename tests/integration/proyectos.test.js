@@ -420,4 +420,52 @@ describe('Proyectos — Integración', () => {
       expect(res.body.map((p) => p.id)).not.toContain(privadoId);
     });
   });
+
+  describe('GET /:id — expediente autenticado', () => {
+    let pendienteId;
+
+    beforeAll(async () => {
+      const res = await agent.post('/api/proyectos').send({
+        titulo: 'Expediente de prueba',
+        descripcion: 'd',
+      });
+      pendienteId = res.body.id;
+    });
+
+    test('Debe rechazar sin cookie', async () => {
+      const res = await request(app).get(`/api/proyectos/${pendienteId}`);
+      expect(res.status).toBe(401);
+    });
+
+    test('El autor ve su propio expediente, con participantes/archivos/revisiones', async () => {
+      const res = await agent.get(`/api/proyectos/${pendienteId}`);
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('participantes');
+      expect(res.body).toHaveProperty('archivos');
+      expect(res.body).toHaveProperty('revisiones');
+    });
+
+    test('Un profesor ve el expediente aunque no sea el autor', async () => {
+      const res = await profesorAgent.get(`/api/proyectos/${pendienteId}`);
+      expect(res.status).toBe(200);
+    });
+
+    test('Un estudiante ajeno (ni autor ni participante) recibe 404 mientras está pendiente', async () => {
+      const res = await participanteAgent.get(`/api/proyectos/${pendienteId}`);
+      expect(res.status).toBe(404);
+    });
+
+    test('Responde 400 si el id no es un UUID válido', async () => {
+      const res = await agent.get('/api/proyectos/no-es-un-uuid');
+      expect(res.status).toBe(400);
+    });
+
+    test('Tras aprobar, cualquier estudiante autenticado puede verlo (público por defecto)', async () => {
+      await profesorAgent.put(`/api/proyectos/${pendienteId}/estado`).send({ estado: 'aprobado', comentario: 'Ok' });
+      const res = await participanteAgent.get(`/api/proyectos/${pendienteId}`);
+      expect(res.status).toBe(200);
+      expect(res.body.revisiones.length).toBeGreaterThan(0);
+      expect(res.body.revisiones[0].comentario).toBe('Ok');
+    });
+  });
 });

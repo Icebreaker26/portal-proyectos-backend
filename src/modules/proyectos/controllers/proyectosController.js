@@ -20,6 +20,15 @@ export const obtenerPublico = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+export const obtener = async (req, res, next) => {
+  try {
+    const { id } = idParamSchema.parse(req.params);
+    const proyecto = await service.obtener(id, req.user);
+    if (!proyecto) return res.status(404).json({ error: 'Proyecto no encontrado' });
+    res.json(proyecto);
+  } catch (err) { next(err); }
+};
+
 export const crear = async (req, res, next) => {
   try {
     const datos = crearSchema.parse(req.body);

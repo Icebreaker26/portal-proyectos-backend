@@ -138,6 +138,69 @@ export const obtenerPublico = async (id) => {
   return { ...proyecto, participantes: participantes.rows, archivos: archivos.rows };
 };
 
+// Expediente autenticado de un proyecto (a diferencia de obtenerPublico, no se limita a
+// aprobado+publico): quien puede aprobar ve cualquiera; el resto solo si es autor,
+// participante, o si ya está aprobado y no es privado — misma regla que listar(). Devuelve
+// 404 en vez de 403 para no revelar que el proyecto existe a quien no debería verlo.
+// Incluye el historial de revisiones (proyecto_revisiones) -- a diferencia del detalle
+// público, aquí sí aplica: quien ve el expediente ya tiene algún vínculo con el proyecto.
+export const obtener = async (id, usuario) => {
+  const { rows } = await pool.query(
+    `SELECT p.*, g.nombre AS autor_nombre, gp.nombre AS profesor_nombre,
+            COALESCE(v.total, 0)::int AS votos
+       FROM proyectos p
+       JOIN global_usuarios g ON g.id = p.autor_uuid
+       LEFT JOIN global_usuarios gp ON gp.id = p.profesor_uuid
+       LEFT JOIN (SELECT proyecto_id, COUNT(*) AS total FROM votos WHERE is_active = true GROUP BY proyecto_id) v
+         ON v.proyecto_id = p.id
+      WHERE p.id = $1 AND p.is_active = true`,
+    [id],
+  );
+  const proyecto = rows[0];
+  if (!proyecto) return null;
+
+  if (!(await tieneAprobar(usuario))) {
+    const esAutor = proyecto.autor_uuid === usuario.uuid;
+    const { rows: participa } = await pool.query(
+      `SELECT 1 FROM proyecto_participantes WHERE proyecto_id = $1 AND usuario_uuid = $2`,
+      [id, usuario.uuid],
+    );
+    const esAprobadoVisible = proyecto.estado === 'aprobado' && ['publico', 'comunidad'].includes(proyecto.visibilidad);
+    if (!esAutor && participa.length === 0 && !esAprobadoVisible) return null;
+  }
+
+  const participantes = await pool.query(
+    `SELECT pp.usuario_uuid, pp.nombre_libre, pp.rol, pp.orden_autoria, pp.aporte, pp.consiente_publicacion,
+            g.nombre AS nombre_cuenta
+       FROM proyecto_participantes pp
+       LEFT JOIN global_usuarios g ON g.id = pp.usuario_uuid
+      WHERE pp.proyecto_id = $1
+      ORDER BY pp.orden_autoria ASC`,
+    [id],
+  );
+
+  const archivos = await pool.query(
+    `SELECT id, tipo, nombre_original, mime_type, tamano_bytes, descripcion_alt, created_at
+       FROM proyecto_archivos WHERE proyecto_id = $1 ORDER BY created_at ASC`,
+    [id],
+  );
+
+  const revisiones = await pool.query(
+    `SELECT r.estado_anterior, r.estado_nuevo, r.comentario, r.created_at, g.nombre AS revisor_nombre
+       FROM proyecto_revisiones r
+       LEFT JOIN global_usuarios g ON g.id = r.revisor_uuid
+      WHERE r.proyecto_id = $1 ORDER BY r.created_at ASC`,
+    [id],
+  );
+
+  return {
+    ...proyecto,
+    participantes: participantes.rows,
+    archivos: archivos.rows,
+    revisiones: revisiones.rows,
+  };
+};
+
 export const crear = async (autorUuid, datos) => {
   await validarProfesor(datos.profesor_uuid);
   const slug = await generarSlugUnico(datos.titulo);
