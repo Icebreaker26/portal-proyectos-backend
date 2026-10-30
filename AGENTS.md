@@ -49,18 +49,20 @@ rechazo 403 al intentar aprobar como estudiante):
   `1772300000006_modulo_usuarios.js`. Test en `tests/integration/usuarios.test.js`.
 - `docs/01-requisitos/SRS.md`, `docs/02-diseno/SDD.md` y `docs/03-pruebas/plan-de-pruebas.md`
   rellenos con el contenido real (requisitos funcionales RF-01..RF-07, modelo ER, estado de
-  cobertura de tests). Quedan sin cubrir con test dedicado: `auth`/`permisos` (login/registro se
-  prueban indirectamente vía los `beforeAll` de los otros módulos).
-- Suite completa: `npm test` → 22/22 verde contra Postgres real.
+  cobertura de tests).
+- `tests/integration/auth.test.js`: validación Zod, registro (rol estudiante por defecto, permisos
+  asignados, correo duplicado → 409, dominio `@ucp.edu.co`), login/logout, `GET /me`.
+- Suite completa: `npm test` → 34/34 verde contra Postgres real.
 
-**Pendiente — empieza aquí:**
-1. **Deploy en Railway (issue #8)** — no iniciado. Requiere `railway login` (cuenta del autor) antes
-   de que un agente pueda continuar con `railway init` / provisión de Postgres / variables de
-   entorno; no lo hagas sin que el autor haya iniciado sesión primero.
-2. Panel de promoción a profesor — el **backend** (issue #10) ya está hecho (ver arriba); falta solo
-   la pieza de **frontend** (lista de usuarios + selector de rol, solo admin). Prioridad baja.
-3. `tests/integration/auth.test.js` dedicado (registro, duplicados, dominio de correo, login
-   inválido) — hoy solo hay cobertura indirecta.
+**Pendiente:**
+1. **Deploy en Railway (issue #8)** — decidido no hacerlo todavía (el autor avisó que lo deja para
+   más adelante). Requiere `railway login` (cuenta del autor) antes de que un agente pueda continuar
+   con `railway init` / provisión de Postgres / variables de entorno; no lo hagas sin que el autor
+   haya iniciado sesión primero.
+2. Panel de promoción a profesor — el **backend** (issue #10) ya está hecho (ver arriba). La pieza
+   de **frontend** quedó registrada como issue propio en el otro repo:
+   [portal-proyectos-frontend#12](https://github.com/Icebreaker26/portal-proyectos-frontend/issues/12).
+   Prioridad baja, no bloquea nada de este repo.
 
 Cada issue abierto trae un comentario indicando qué parte de su alcance está hecha y qué falta.
 Lee el issue completo (incluyendo comentarios) antes de empezar a trabajar en él.
