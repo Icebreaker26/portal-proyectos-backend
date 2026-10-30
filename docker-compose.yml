@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: portal
+      POSTGRES_PASSWORD: portal
+      POSTGRES_DB: portal_proyectos
+    ports:
+      - "54329:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks:
+      - portal_net
+
+  backend:
+    build: .
+    env_file: .env
+    ports:
+      - "48500:48500"
+    depends_on:
+      - db
+    volumes:
+      - uploads_vol:/app/uploads
+    networks:
+      - portal_net
+
+networks:
+  portal_net:
+
+volumes:
+  pg_data:
+  uploads_vol:
