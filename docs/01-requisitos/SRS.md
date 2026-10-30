@@ -19,16 +19,11 @@ Portal de Proyectos UCP: plataforma donde estudiantes suben proyectos de curso, 
 
 <!-- RF-01, RF-02... completar por issue -->
 
-### Pregunta abierta: alta de cuentas
+### Alta de cuentas (resuelto — ver ADR 0006)
 
-Hoy el único mecanismo de creación de usuarios es `scripts/seed.js` (crea un admin a mano). No hay
-endpoint de registro. Falta decidir antes de construir el panel estudiante/profesor:
-
-- ¿Autorregistro con dominio de correo restringido (`@ucp.edu.co`)?
-- ¿El admin crea cuentas desde un panel?
-- ¿Import masivo (CSV) como hace Kernel con los asociados?
-
-Ver issue "Auth: JWT en cookie HttpOnly + bcrypt + tabla global_usuarios" en el repo backend.
+Autorregistro (`POST /api/auth/registro`) restringido a correo `@ucp.edu.co`, siempre crea rol
+`estudiante`. La promoción a `profesor` es manual (admin actualiza `global_usuarios.rol` en BD) —
+no hay panel de administración de usuarios en Fase 1.
 
 ## 4. Requisitos no funcionales
 

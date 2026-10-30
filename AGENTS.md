@@ -14,7 +14,11 @@ módulos de negocio enchufables (`proyectos`, `votos`) que se autodescubren por 
 
 El scaffolding base **ya existe** en `develop`:
 - Núcleo: `src/config/env.js`, `src/db/database.js`, `src/middlewares/*`, `src/createApp.js`, `src/index.js`.
-- Módulo `auth`: login/logout/me funcionando contra `global_usuarios`.
+- Módulo `auth`: login/logout/me/**registro** funcionando contra `global_usuarios`. El registro solo
+  acepta correos `@ucp.edu.co` y siempre crea rol `estudiante` (ver ADR 0006). La promoción a
+  `profesor` es manual (issue "Admin: promover usuario a profesor").
+- `src/services/permisosDefaultService.js`: asigna los permisos por defecto de cada rol al crearse
+  o promoverse un usuario. La acción `APROBAR` (separada de `WRITE`) solo la reciben `profesor`/`admin`.
 - Módulos `proyectos` y `votos`: CRUD básico, falta completar reglas de negocio y tests.
 - Migraciones 0001–0004 (init, permisos, proyectos, votos).
 - `Dockerfile` + `docker-compose.yml`.

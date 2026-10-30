@@ -1,5 +1,5 @@
 import { env } from '../../../config/env.js';
-import { loginSchema } from '../schemas/authSchema.js';
+import { loginSchema, registroSchema } from '../schemas/authSchema.js';
 import * as service from '../services/authService.js';
 
 const cookieOpts = {
@@ -17,6 +17,18 @@ export const login = async (req, res, next) => {
 
     res.cookie('token', resultado.token, cookieOpts);
     res.json(resultado.usuario);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const registro = async (req, res, next) => {
+  try {
+    const { nombre, email, password } = registroSchema.parse(req.body);
+    const resultado = await service.registrar(nombre, email.toLowerCase(), password);
+
+    res.cookie('token', resultado.token, cookieOpts);
+    res.status(201).json(resultado.usuario);
   } catch (err) {
     next(err);
   }

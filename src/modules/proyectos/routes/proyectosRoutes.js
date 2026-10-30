@@ -14,7 +14,7 @@ router.get('/pub', pubLimiter, ctrl.listarPublico);
 router.use(verifyToken);
 router.get('/', checkPermission('proyectos', 'READ'), ctrl.listar);
 router.post('/', checkPermission('proyectos', 'WRITE'), ctrl.crear);
-router.put('/:id/estado', checkPermission('proyectos', 'WRITE'), ctrl.actualizarEstado);
+router.put('/:id/estado', checkPermission('proyectos', 'APROBAR'), ctrl.actualizarEstado);
 router.delete('/:id', checkPermission('proyectos', 'DELETE'), ctrl.eliminar);
 
 export default router;
