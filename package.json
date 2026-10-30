@@ -10,6 +10,7 @@
     "migrate:down": "node-pg-migrate down",
     "migrate:create": "node-pg-migrate create",
     "seed": "node scripts/seed.js",
+    "seed:demo": "node scripts/seedDemo.js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand"
   },
   "dependencies": {

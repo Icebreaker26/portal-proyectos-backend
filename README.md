@@ -29,6 +29,25 @@ npm run dev
 
 `GET http://localhost:48500/api/proyectos/pub` debe responder sin autenticación.
 
+## Datos de prueba
+
+```bash
+npm run seed:demo
+```
+
+Crea (idempotente, se puede correr varias veces) 7 usuarios y 8 proyectos con votos
+distribuidos, para probar el portal manualmente sin armar los datos a mano. Contraseña
+de **todas** las cuentas: `Demo1234!`.
+
+| Email | Rol |
+|---|---|
+| `admin@ucp.edu.co` | admin |
+| `profesor1@ucp.edu.co`, `profesor2@ucp.edu.co` | profesor |
+| `estudiante1@ucp.edu.co` … `estudiante4@ucp.edu.co` | estudiante |
+
+No usar contra una base de producción. Para sembrar solo un admin (sin datos de
+prueba), usar `npm run seed <email> <password> <nombre>` (`scripts/seed.js`).
+
 ## Flujo de trabajo (Git flow)
 
 - `main`: estable / releases.
