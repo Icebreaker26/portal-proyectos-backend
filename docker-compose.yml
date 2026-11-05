@@ -3,6 +3,7 @@ name: portal-proyectos-backend
 services:
   db:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: portal
       POSTGRES_PASSWORD: portal
@@ -16,6 +17,7 @@ services:
 
   backend:
     build: .
+    restart: unless-stopped
     env_file: .env
     environment:
       DATABASE_URL: postgresql://portal:portal@db:5432/portal_proyectos
