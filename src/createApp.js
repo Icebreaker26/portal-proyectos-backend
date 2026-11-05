@@ -28,7 +28,11 @@ const cargarModulos = async (app) => {
 export const createApp = async () => {
   const app = express();
 
-  app.set('trust proxy', env.NODE_ENV === 'production');
+  // ADR 0004: el backend siempre corre detrás de un reverse proxy (nginx del frontend),
+  // tanto en docker-compose local como en el destino cloud final — nunca expuesto directo.
+  // Confiar en el primer hop es necesario para que express-rate-limit lea la IP real desde
+  // X-Forwarded-For en vez de lanzar ERR_ERL_UNEXPECTED_X_FORWARDED_FOR.
+  app.set('trust proxy', 1);
   app.use(helmet());
   app.use(cors({ origin: env.FRONTEND_URL, credentials: true }));
   app.use(express.json());
