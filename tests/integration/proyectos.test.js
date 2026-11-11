@@ -352,11 +352,32 @@ describe('Proyectos — Integración', () => {
       expect(res.status).toBe(409);
     });
 
+    // Issue #12 (punto 3) — así es como un participante autenticado se entera de que debe
+    // confirmar su consentimiento, sin que nadie le avise por fuera del portal.
+    test('GET /api/proyectos le marca al participante que falta su consentimiento', async () => {
+      const res = await participanteAgent.get('/api/proyectos');
+      const fila = res.body.find((p) => p.id === proyectoId);
+      expect(fila.requiere_mi_consentimiento).toBe(true);
+    });
+
+    test('A quien no es participante de ese proyecto no le marca nada (ni aparece la fila)', async () => {
+      const res = await profesorAgent.get('/api/proyectos');
+      const fila = res.body.find((p) => p.id === proyectoId);
+      // profesorAgent sí ve el proyecto (tiene APROBAR), pero no es participante en él.
+      expect(fila.requiere_mi_consentimiento).toBe(false);
+    });
+
     test('El participante confirma su consentimiento', async () => {
       const res = await participanteAgent
         .put(`/api/proyectos/${proyectoId}/consentimiento`)
         .send({ consiente: true });
       expect(res.status).toBe(200);
+    });
+
+    test('Después de confirmar, GET /api/proyectos ya no se lo marca', async () => {
+      const res = await participanteAgent.get('/api/proyectos');
+      const fila = res.body.find((p) => p.id === proyectoId);
+      expect(fila.requiere_mi_consentimiento).toBe(false);
     });
 
     test('Un usuario que no es participante no puede confirmar consentimiento — 404', async () => {

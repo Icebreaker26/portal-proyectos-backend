@@ -57,15 +57,17 @@ const generarSlugUnico = async (titulo) => {
 // Quien no, ve lo suyo (autor o participante) + lo aprobado-no-privado de otros.
 export const listar = async (usuario, { estado } = {}) => {
   const condiciones = ['p.is_active = true'];
-  const valores = [];
+  // El uuid del usuario siempre va primero: lo necesita tanto el filtro de acceso (solo cuando no
+  // tiene APROBAR) como el LEFT JOIN de abajo (issue #12 — requiere_mi_consentimiento), que aplica
+  // a cualquiera, tenga o no APROBAR.
+  const valores = [usuario.uuid];
+  const uIdx = 1;
   if (estado) {
     valores.push(estado);
     condiciones.push(`p.estado = $${valores.length}`);
   }
 
   if (!(await tieneAprobar(usuario))) {
-    valores.push(usuario.uuid);
-    const uIdx = valores.length;
     condiciones.push(`(
       p.autor_uuid = $${uIdx}
       OR EXISTS (SELECT 1 FROM proyecto_participantes pp WHERE pp.proyecto_id = p.id AND pp.usuario_uuid = $${uIdx})
@@ -77,10 +79,12 @@ export const listar = async (usuario, { estado } = {}) => {
     `SELECT p.id, p.titulo, p.descripcion, p.repositorio_url, p.estado, p.autor_uuid, p.created_at,
             p.programa, p.asignatura, p.semestre, p.tipo_proyecto, p.resumen, p.imagen_portada_url,
             p.stack, p.slug, p.visibilidad,
-            COALESCE(v.total, 0)::int AS votos
+            COALESCE(v.total, 0)::int AS votos,
+            COALESCE(mp.consiente_publicacion = false, false) AS requiere_mi_consentimiento
        FROM proyectos p
        LEFT JOIN (SELECT proyecto_id, COUNT(*) AS total FROM votos WHERE is_active = true GROUP BY proyecto_id) v
          ON v.proyecto_id = p.id
+       LEFT JOIN proyecto_participantes mp ON mp.proyecto_id = p.id AND mp.usuario_uuid = $${uIdx}
       WHERE ${condiciones.join(' AND ')} ORDER BY p.created_at DESC`,
     valores,
   );
