@@ -8,9 +8,17 @@ import { asignarPermisosPorDefecto } from '../src/services/permisosDefaultServic
 // manualmente. Idempotente: se puede correr varias veces sin duplicar nada (emails
 // reutilizados vía ON CONFLICT, proyectos por título+autor). No usar contra producción.
 //
+// Los proyectos son repos reales de github.com/Icebreaker26 (elegidos por el autor),
+// "adjudicados" a las cuentas de estudiante/profesor de prueba de abajo -- ningún
+// estudiante/profesor de este seed es una persona real, solo los repos lo son.
+//
 // Uso: npm run seed:demo
 
 const PASSWORD = 'Demo1234!';
+
+// Imagen social que GitHub genera automáticamente para cada repo público (opengraph) --
+// solo para repos públicos; los privados no la sirven sin auth, así que esos quedan sin portada.
+const portadaGithub = (owner, repo) => `https://opengraph.githubassets.com/1/${owner}/${repo}`;
 
 const USUARIOS = [
   { nombre: 'Admin Demo', email: 'admin@ucp.edu.co', rol: 'admin' },
@@ -67,15 +75,15 @@ const crearProyecto = async (autorUuid, datos) => {
     `INSERT INTO proyectos (
        autor_uuid, titulo, descripcion, repositorio_url, estado,
        programa, asignatura, semestre, tipo_proyecto, profesor_uuid,
-       resumen, stack, palabras_clave, video_demo_url, demo_url,
+       resumen, imagen_portada_url, stack, palabras_clave, video_demo_url, demo_url,
        slug, visibilidad, licencia
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
      RETURNING id`,
     [
       autorUuid, datos.titulo, datos.descripcion, datos.repositorioUrl || null, datos.estado,
       datos.programa || null, datos.asignatura || null, datos.semestre || null,
       datos.tipoProyecto || null, datos.profesorUuid || null,
-      datos.resumen || null, datos.stack || [], datos.palabrasClave || [],
+      datos.resumen || null, datos.imagenPortadaUrl || null, datos.stack || [], datos.palabrasClave || [],
       datos.videoDemoUrl || null, datos.demoUrl || null,
       slug, datos.visibilidad || 'publico', datos.licencia || null,
     ],
@@ -123,135 +131,113 @@ const main = async () => {
     ids[u.email] = await upsertUsuario(u);
   }
 
+  // Proyectos reales de github.com/Icebreaker26 (el autor de este repo), elegidos por él
+  // mismo y "adjudicados" a las cuentas de prueba de arriba -- ver AGENTS.md para el detalle.
   const proyectos = [
-    {
-      autor: 'estudiante1@ucp.edu.co',
-      estado: 'aprobado',
-      titulo: 'Sistema de riego inteligente para el vivero de la facultad',
-      descripcion: 'Prototipo IoT con sensores de humedad y control remoto para automatizar el riego del vivero de Ingeniería Ambiental.',
-      repositorioUrl: 'https://github.com/ucp-demo/riego-inteligente',
-      programa: 'Ingeniería Ambiental',
-      asignatura: 'Automatización y Control',
-      semestre: '2026-1',
-      tipoProyecto: 'aplicativo',
-      profesor: 'profesor1@ucp.edu.co',
-      resumen: 'Riego automatizado con sensores de humedad y control remoto para el vivero de la facultad.',
-      stack: ['Arduino', 'Python', 'MQTT'],
-      palabrasClave: ['iot', 'riego', 'sostenibilidad'],
-      videoDemoUrl: 'https://youtube.com/watch?v=demo-riego',
-      licencia: 'MIT',
-      coautores: [{ email: 'estudiante2@ucp.edu.co', rol: 'desarrollo', aporte: 'Firmware y conexión MQTT', consiente: true }],
-      comentarioRevision: 'Buen prototipo, aprobado para la feria de proyectos.',
-    },
-    {
-      autor: 'estudiante2@ucp.edu.co',
-      estado: 'aprobado',
-      titulo: 'App de reportes de infraestructura del campus',
-      descripcion: 'Aplicación móvil para que estudiantes y profesores reporten daños en la infraestructura del campus, con seguimiento de estado.',
-      repositorioUrl: 'https://github.com/ucp-demo/reportes-infraestructura',
-      programa: 'Ingeniería de Sistemas',
-      asignatura: 'Desarrollo Móvil',
-      semestre: '2026-1',
-      tipoProyecto: 'aplicativo',
-      profesor: 'profesor2@ucp.edu.co',
-      resumen: 'App móvil para reportar y hacer seguimiento a daños de infraestructura en el campus.',
-      stack: ['Flutter', 'Firebase'],
-      palabrasClave: ['movil', 'infraestructura', 'campus'],
-      comentarioRevision: 'Aprobado.',
-    },
     {
       autor: 'estudiante3@ucp.edu.co',
       estado: 'aprobado',
-      titulo: 'Monitor de calidad del aire con sensores IoT',
-      descripcion: 'Red de sensores distribuidos en el campus para medir PM2.5, CO2 y humedad en tiempo real, con dashboard web público.',
-      repositorioUrl: 'https://github.com/ucp-demo/monitor-aire',
-      programa: 'Ingeniería Ambiental',
-      asignatura: 'Proyecto de Grado I',
+      titulo: 'The Linkin Tool — Planificación de enlaces PTP',
+      descripcion: 'Software para planificar enlaces punto a punto (PTP) en proyectos de telecomunicaciones: calcula línea de vista, zona de Fresnel y presupuesto de enlace a partir de las coordenadas de los dos extremos.',
+      repositorioUrl: 'https://github.com/Icebreaker26/thelinkintool',
+      imagenPortadaUrl: portadaGithub('Icebreaker26', 'thelinkintool'),
+      programa: 'Ingeniería Electrónica y Telecomunicaciones',
+      asignatura: 'Radioenlaces',
       semestre: '2025-2',
       tipoProyecto: 'trabajo_de_grado',
-      profesor: 'profesor1@ucp.edu.co',
-      resumen: 'Red de sensores IoT para medir calidad del aire en el campus, con dashboard público en tiempo real.',
-      stack: ['ESP32', 'InfluxDB', 'Grafana'],
-      palabrasClave: ['iot', 'calidad-aire', 'ambiental'],
-      demoUrl: 'https://monitor-aire-demo.ucp-demo.test',
-      licencia: 'CC-BY-4.0',
-      coautores: [{ email: 'estudiante4@ucp.edu.co', rol: 'investigacion', aporte: 'Análisis de datos y validación de sensores', consiente: true }],
-      comentarioRevision: 'Excelente trabajo de grado, aprobado.',
+      profesor: 'profesor2@ucp.edu.co',
+      resumen: 'Calcula línea de vista, zona de Fresnel y presupuesto de enlace para radioenlaces punto a punto.',
+      stack: ['JavaScript', 'Node.js'],
+      palabrasClave: ['telecomunicaciones', 'radioenlaces', 'ptp'],
+      comentarioRevision: 'Aprobado — herramienta sólida y bien documentada para el curso de radioenlaces.',
     },
     {
       autor: 'estudiante1@ucp.edu.co',
       estado: 'aprobado',
-      titulo: 'Plataforma de tutorías entre pares',
-      descripcion: 'Sistema de agendamiento para que estudiantes de semestres avanzados ofrezcan tutorías a estudiantes de primeros semestres.',
+      titulo: 'Moodle Tracker',
+      descripcion: 'Panel local para no perder el rastro de tareas y entregas del aula virtual institucional (Moodle), usando la API oficial sin servidores intermedios ni dependencias externas.',
+      repositorioUrl: 'https://github.com/Icebreaker26/moodle-tracker',
+      imagenPortadaUrl: portadaGithub('Icebreaker26', 'moodle-tracker'),
       programa: 'Ingeniería de Sistemas',
-      asignatura: 'Ingeniería de Software II',
+      asignatura: 'Electiva de Desarrollo',
       semestre: '2026-1',
       tipoProyecto: 'aplicativo',
-      resumen: 'Agendamiento de tutorías entre estudiantes de semestres avanzados y de primeros semestres.',
-      stack: ['React', 'Node.js', 'PostgreSQL'],
-      palabrasClave: ['educacion', 'tutorias'],
+      profesor: 'profesor1@ucp.edu.co',
+      resumen: 'Panel local para rastrear tareas y entregas de Moodle vía su API oficial, sin servidores intermedios.',
+      stack: ['JavaScript'],
+      palabrasClave: ['moodle', 'productividad', 'api'],
+      coautores: [{ email: 'estudiante2@ucp.edu.co', rol: 'desarrollo', aporte: 'Integración con la API de calificaciones', consiente: true }],
       comentarioRevision: 'Aprobado.',
+    },
+    {
+      autor: 'estudiante2@ucp.edu.co',
+      estado: 'pendiente',
+      titulo: 'UCP Markdown CLI — Informe de opción de grado',
+      descripcion: 'Herramienta de línea de comandos para escribir el informe de opción de grado (IST, UCP) en Markdown: citas en formato IEEE, checklist de formato institucional, seguimiento de pendientes y exportación a Word.',
+      repositorioUrl: 'https://github.com/Icebreaker26/ucp-markdown-cli',
+      imagenPortadaUrl: portadaGithub('Icebreaker26', 'ucp-markdown-cli'),
+      programa: 'Ingeniería de Sistemas',
+      asignatura: 'Proyecto de Grado I',
+      semestre: '2026-1',
+      tipoProyecto: 'aplicativo',
+      profesor: 'profesor1@ucp.edu.co',
+      resumen: 'CLI para escribir el informe de grado en Markdown con citas IEEE, checklist de formato y exportación a Word.',
+      stack: ['JavaScript', 'Node.js'],
+      palabrasClave: ['markdown', 'academico', 'cli'],
+      // A propósito SIN consentir: para demostrar que no se puede aprobar hasta que
+      // estudiante4 confirme su consentimiento vía PUT /:id/consentimiento.
+      coautores: [{ email: 'estudiante4@ucp.edu.co', rol: 'investigacion', aporte: 'Checklist de formato institucional', consiente: false }],
+    },
+    {
+      autor: 'estudiante4@ucp.edu.co',
+      estado: 'rechazado',
+      titulo: 'Instalador automatizado CachyOS',
+      descripcion: 'Instalación automatizada estilo CachyOS (Arch Linux + KDE + btrfs) para VirtualBox, pensada para levantar entornos de laboratorio reproducibles rápidamente.',
+      repositorioUrl: 'https://github.com/Icebreaker26/cachy-custom-installer',
+      imagenPortadaUrl: portadaGithub('Icebreaker26', 'cachy-custom-installer'),
+      programa: 'Ingeniería de Sistemas',
+      asignatura: null,
+      semestre: '2025-2',
+      tipoProyecto: 'aplicativo',
+      profesor: 'profesor2@ucp.edu.co',
+      resumen: 'Automatiza la instalación de un entorno Arch Linux + KDE + btrfs en VirtualBox para laboratorios reproducibles.',
+      stack: ['Shell', 'Arch Linux'],
+      palabrasClave: ['linux', 'devops', 'automatizacion'],
+      comentarioRevision: 'Rechazado: falta explicar qué objetivo de curso cumple el proyecto y cómo se evalúa — se puede reenviar con ese alcance académico aclarado.',
     },
     {
       autor: 'profesor1@ucp.edu.co',
       estado: 'aprobado',
-      titulo: 'Dashboard de analítica académica para decanatura',
-      descripcion: 'Panel con indicadores de deserción, rendimiento por curso y alertas tempranas para la toma de decisiones académicas.',
-      repositorioUrl: 'https://github.com/ucp-demo/analitica-academica',
+      titulo: 'CORE — Motor de gestión legal, ambiental y contractual',
+      descripcion: 'Monolito modular PERN para la gestión legal, ambiental, contractual y operativa de una empresa del sector energético: tutelas, contratos, comunicaciones y aprobaciones, con permisos granulares por módulo y acción.',
+      repositorioUrl: 'https://github.com/Icebreaker26/legal-case-engine-frontend',
+      imagenPortadaUrl: portadaGithub('Icebreaker26', 'legal-case-engine-frontend'),
       programa: 'Ingeniería de Sistemas',
       asignatura: null,
       semestre: '2026-1',
-      tipoProyecto: 'investigacion',
-      resumen: 'Indicadores de deserción y rendimiento académico con alertas tempranas para decanatura.',
-      stack: ['Python', 'Pandas', 'Dash'],
-      palabrasClave: ['analitica', 'academico'],
-      comentarioRevision: 'Autoaprobado por el profesor autor.',
-    },
-    {
-      autor: 'estudiante4@ucp.edu.co',
-      estado: 'pendiente',
-      titulo: 'Bot de Telegram para consultas de biblioteca',
-      descripcion: 'Bot que permite consultar disponibilidad de libros y renovar préstamos desde Telegram, consumiendo la API de la biblioteca.',
-      repositorioUrl: 'https://github.com/ucp-demo/bot-biblioteca',
-      programa: 'Ingeniería de Sistemas',
-      asignatura: 'Integración de Sistemas',
-      semestre: '2026-1',
-      tipoProyecto: 'aplicativo',
-      resumen: 'Bot de Telegram para consultar y renovar préstamos de la biblioteca.',
-      stack: ['Node.js', 'Telegram Bot API'],
-      palabrasClave: ['bot', 'biblioteca'],
-      // A propósito SIN consentir: para demostrar que no se puede aprobar hasta que
-      // estudiante2 confirme su consentimiento vía PUT /:id/consentimiento.
-      coautores: [{ email: 'estudiante2@ucp.edu.co', rol: 'desarrollo', aporte: 'Integración con la API de biblioteca', consiente: false }],
-    },
-    {
-      autor: 'estudiante2@ucp.edu.co',
-      estado: 'pendiente',
-      titulo: 'Rediseño del sitio web de bienestar universitario',
-      descripcion: 'Propuesta de rediseño UX/UI para el sitio de Bienestar Universitario, con enfoque en accesibilidad.',
-      programa: 'Ingeniería de Sistemas',
-      asignatura: 'Diseño de Experiencia de Usuario',
-      semestre: '2026-1',
-      tipoProyecto: 'aplicativo',
-      resumen: 'Rediseño UX/UI accesible del sitio de Bienestar Universitario.',
-      stack: ['Figma', 'HTML', 'CSS'],
-      palabrasClave: ['ux', 'accesibilidad'],
+      tipoProyecto: 'trabajo_de_grado',
+      resumen: 'Monolito modular PERN para gestión legal, ambiental y contractual con permisos granulares por módulo.',
+      stack: ['React', 'Node.js', 'PostgreSQL', 'Docker'],
+      palabrasClave: ['legaltech', 'gestion', 'permisos'],
+      comentarioRevision: 'Autoaprobado por la autora (rol profesor).',
     },
     {
       autor: 'estudiante3@ucp.edu.co',
-      estado: 'rechazado',
-      titulo: 'Juego educativo de física en Unity',
-      descripcion: 'Simulador de cinemática y dinámica para el curso de Física I.',
-      repositorioUrl: 'https://github.com/ucp-demo/fisica-game',
+      estado: 'aprobado',
+      titulo: 'Fábrica de reels 3D — motor + kits de estilo',
+      descripcion: 'Motor para producir videos cortos verticales con Remotion + Three.js, narración por IA y efectos de sonido sintetizados, con kits de estilo intercambiables para que un cliente nuevo solo necesite un guion, no una app nueva.',
+      repositorioUrl: 'https://github.com/Icebreaker26/3d-animations-showcase',
+      // Repo privado: GitHub no sirve la imagen social sin auth, queda sin portada.
       programa: 'Ingeniería de Sistemas',
-      asignatura: 'Física I',
-      semestre: '2025-2',
-      tipoProyecto: 'aplicativo',
-      profesor: 'profesor2@ucp.edu.co',
-      resumen: 'Simulador de cinemática y dinámica en Unity para el curso de Física I.',
-      stack: ['Unity', 'C#'],
-      palabrasClave: ['educativo', 'fisica', 'juego'],
-      comentarioRevision: 'Rechazado por alcance incompleto — falta implementar el módulo de dinámica rotacional. Se puede reenviar tras corregir.',
+      asignatura: 'Electiva de IA Aplicada',
+      semestre: '2026-1',
+      tipoProyecto: 'investigacion',
+      profesor: 'profesor1@ucp.edu.co',
+      resumen: 'Motor de videos 3D con Remotion + Three.js y narración por IA, con kits de estilo intercambiables.',
+      stack: ['TypeScript', 'React', 'Three.js', 'Remotion'],
+      palabrasClave: ['ia', '3d', 'video'],
+      coautores: [{ email: 'estudiante1@ucp.edu.co', rol: 'diseno', aporte: 'Kits de estilo cartoon y noche', consiente: true }],
+      comentarioRevision: 'Aprobado — buena demostración del patrón motor + kit de estilo intercambiable.',
     },
   ];
 
@@ -267,11 +253,10 @@ const main = async () => {
   }
 
   const votos = [
-    ['Sistema de riego inteligente para el vivero de la facultad', ['estudiante2@ucp.edu.co', 'estudiante3@ucp.edu.co', 'estudiante4@ucp.edu.co', 'profesor1@ucp.edu.co']],
-    ['App de reportes de infraestructura del campus', ['estudiante1@ucp.edu.co', 'estudiante3@ucp.edu.co']],
-    ['Monitor de calidad del aire con sensores IoT', ['estudiante1@ucp.edu.co', 'estudiante2@ucp.edu.co', 'estudiante4@ucp.edu.co', 'profesor1@ucp.edu.co', 'profesor2@ucp.edu.co']],
-    ['Plataforma de tutorías entre pares', ['estudiante4@ucp.edu.co']],
-    ['Dashboard de analítica académica para decanatura', ['estudiante1@ucp.edu.co', 'estudiante2@ucp.edu.co', 'profesor2@ucp.edu.co']],
+    ['The Linkin Tool — Planificación de enlaces PTP', ['estudiante1@ucp.edu.co', 'estudiante2@ucp.edu.co', 'profesor1@ucp.edu.co']],
+    ['Moodle Tracker', ['estudiante2@ucp.edu.co', 'estudiante3@ucp.edu.co', 'estudiante4@ucp.edu.co', 'profesor1@ucp.edu.co', 'profesor2@ucp.edu.co']],
+    ['CORE — Motor de gestión legal, ambiental y contractual', ['estudiante1@ucp.edu.co', 'estudiante3@ucp.edu.co', 'estudiante4@ucp.edu.co', 'profesor2@ucp.edu.co']],
+    ['Fábrica de reels 3D — motor + kits de estilo', ['estudiante1@ucp.edu.co', 'estudiante2@ucp.edu.co', 'estudiante4@ucp.edu.co', 'profesor1@ucp.edu.co']],
   ];
 
   for (const [titulo, emails] of votos) {
@@ -284,9 +269,9 @@ const main = async () => {
   console.log(`Contraseña de todas las cuentas: ${PASSWORD}\n`);
   console.log('Usuarios:');
   for (const u of USUARIOS) console.log(`  - ${u.email} (${u.rol})`);
-  console.log(`\n${proyectos.length} proyectos (5 aprobados, 2 pendientes, 1 rechazado).`);
-  console.log('"Bot de Telegram para consultas de biblioteca" tiene un coautor sin consentir —');
-  console.log('sirve para probar que no se puede aprobar hasta que estudiante2 confirme.');
+  console.log(`\n${proyectos.length} proyectos reales de github.com/Icebreaker26 (4 aprobados, 1 pendiente, 1 rechazado).`);
+  console.log('"UCP Markdown CLI — Informe de opción de grado" tiene un coautor sin consentir —');
+  console.log('sirve para probar que no se puede aprobar hasta que estudiante4 confirme.');
 
   await pool.end();
 };
