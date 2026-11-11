@@ -8,6 +8,7 @@ const PERMISOS_POR_ROL = {
     ['proyectos', 'WRITE'],
     ['votos', 'WRITE'],
     ['votos', 'DELETE'],
+    ['usuarios', 'BUSCAR'],
   ],
   profesor: [
     ['proyectos', 'READ'],
@@ -16,6 +17,7 @@ const PERMISOS_POR_ROL = {
     ['proyectos', 'APROBAR'],
     ['votos', 'WRITE'],
     ['votos', 'DELETE'],
+    ['usuarios', 'BUSCAR'],
   ],
 };
 

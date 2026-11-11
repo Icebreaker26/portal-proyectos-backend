@@ -19,7 +19,13 @@ migrate:up`, `npm test`, y probado a mano con curl + navegador real):
 - **Auth**: registro solo `@ucp.edu.co` → rol `estudiante` (ADR 0006), login/logout/me.
 - **ACL granular**: `checkPermission`, permisos por defecto por rol, `APROBAR` separado de `WRITE`.
 - **Módulo `usuarios`**: `GET /api/usuarios`, `PUT /api/usuarios/:id/rol` (admin-only), promueve/
-  devuelve estudiante↔profesor reasignando permisos.
+  devuelve estudiante↔profesor reasignando permisos. **[Issue #12](https://github.com/Icebreaker26/portal-proyectos-backend/issues/12)**:
+  `GET /api/usuarios/profesores` y `GET /api/usuarios/buscar?email=...` (acción nueva
+  `usuarios:BUSCAR`, por defecto a `estudiante`/`profesor` — nunca desbloquea el `GET /api/usuarios`
+  completo, que sigue siendo admin-only). `/buscar` exige el email completo y exacto (nunca
+  prefijo) + rate limiter, para no habilitar enumeración de cuentas. `GET /api/proyectos` ahora
+  también expone `requiere_mi_consentimiento` por fila, para que un participante se entere sin que
+  nadie le avise por fuera del portal.
 - **Módulo `votos`**: CRUD, un voto por usuario/proyecto (UNIQUE + upsert idempotente), conteo
   público.
 - **Módulo `proyectos` con modelo extendido (ADR 0008)**: programa/asignatura/semestre/tipo,
@@ -49,19 +55,15 @@ migrate:up`, `npm test`, y probado a mano con curl + navegador real):
 
 **Pendiente — empieza aquí:**
 
-1. **[Issue #12](https://github.com/Icebreaker26/portal-proyectos-backend/issues/12)** — dos
-   endpoints que el frontend necesita y no existen (bloquean parte de
-   [portal-proyectos-frontend#14](https://github.com/Icebreaker26/portal-proyectos-frontend/issues/14),
-   ya cerrado con ese hueco documentado): listar cuentas con rol `profesor` sin ser admin, y buscar
-   una cuenta por email para agregar coautores con cuenta real (pensar el riesgo de enumeración de
-   usuarios). Incluye exponer de alguna forma "en qué proyectos tengo que confirmar mi
-   consentimiento" para un participante autenticado.
-2. **Deploy en Railway (issue #8)** — pausado por decisión del autor. Requiere `railway login`
+1. **Deploy en Railway (issue #8)** — pausado por decisión del autor. Requiere `railway login`
    (cuenta del autor) antes de continuar con `railway init`/provisión de Postgres/variables de
    entorno; no lo hagas sin que el autor haya iniciado sesión primero.
-3. **Fase 2 del ADR 0008** (eventos/ferias, reconocimientos, moderación/reportes, contexto
+2. **Fase 2 del ADR 0008** (eventos/ferias, reconocimientos, moderación/reportes, contexto
    institucional, versionado post-aprobación) — documentada pero sin issue abierto; crear uno
    cuando se priorice.
+3. El frontend (`portal-proyectos-frontend`) todavía no consume `GET /api/usuarios/profesores` ni
+   `/buscar` en `NuevoProyecto.jsx` (issue #12 cerrado aquí, pero el hueco de UI sigue en el otro
+   repo — crear o reabrir el issue correspondiente del lado frontend si no existe).
 
 Cada issue abierto trae un comentario indicando qué parte de su alcance está hecha y qué falta.
 Lee el issue completo (incluyendo comentarios) antes de empezar a trabajar en él.

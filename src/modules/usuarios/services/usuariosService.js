@@ -9,6 +9,30 @@ export const listar = async () => {
   return rows;
 };
 
+// Issue #12 — para el selector de "profesor" al crear un proyecto. Solo campos mínimos, nunca
+// password_hash. Incluye 'admin' porque también puede figurar como profesor_uuid (superusuario).
+export const listarProfesores = async () => {
+  const { rows } = await pool.query(
+    `SELECT id, nombre, email
+       FROM global_usuarios
+      WHERE is_active = true AND rol IN ('profesor', 'admin')
+      ORDER BY nombre`,
+  );
+  return rows;
+};
+
+// Issue #12 — búsqueda por email EXACTO (nunca por prefijo) para agregar un coautor con cuenta
+// real. El email ya llega normalizado (trim + lowercase) desde buscarSchema.
+export const buscarPorEmail = async (email) => {
+  const { rows } = await pool.query(
+    `SELECT id, nombre, email
+       FROM global_usuarios
+      WHERE is_active = true AND lower(email) = $1`,
+    [email],
+  );
+  return rows[0] || null;
+};
+
 export const actualizarRol = async (id, rol) => {
   const { rows } = await pool.query(
     `UPDATE global_usuarios SET rol = $2, updated_at = NOW()
