@@ -256,7 +256,7 @@ describe('Proyectos — Integración', () => {
       const res = await agent.post('/api/proyectos').send({
         titulo: 'Proyecto Con Campos Extendidos',
         descripcion: 'Descripción básica',
-        programa: 'Ingeniería de Sistemas',
+        programa: 'Ingeniería de Sistemas y Telecomunicaciones',
         asignatura: 'Ingeniería de Software II',
         semestre: '2026-1',
         tipo_proyecto: 'aplicativo',
